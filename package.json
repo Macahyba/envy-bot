@@ -1,0 +1,26 @@
+{
+  "name": "envybot",
+  "version": "1.0.0",
+  "description": "Bot simples para enviar imagens do grupo",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "knex:migrate": "knex --knexfile knexfile.js migrate:latest",
+    "knex:migrate:rollback": "knex --knexfile knexfile.js migrate:rollback"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^2.0.6"
+  },
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "knex": "^0.21.12",
+    "node-fetch": "^2.6.1",
+    "pg": "^8.5.1",
+    "telegraf": "^3.38.0"
+  }
+}
