@@ -1,18 +1,26 @@
 const EnvyBot = require('./envy-bot')
 require('dotenv/config');
-const fetch = require('node-fetch');
 
 const bot = new EnvyBot(process.env.BOT_TOKEN);
-bot.init();
+const db = require('./database/connection');
 
-let db = require('./database/connection');
+main();
 
-bot.command('registrar', ctx => registerPhoto(ctx))
+function main(){
 
-bot.command('cancelar', ctx => handleCancel(ctx))
+    bot.init();   
 
-bot.on('inline_query', async ctx => {
-    
+    bot.command('registrar', ctx => setRegisterMode(ctx));
+    bot.command('cancelar', async ctx => handleCancel(ctx));
+    bot.command('deletar', async ctx => setDeleteMode(ctx));
+    bot.on('photo', ctx => handlePhoto(ctx));
+    bot.on('inline_query', async ctx => handleInline(ctx));
+    bot.on('text', async ctx => handleText(ctx))
+    bot.launch()
+}
+
+async function handleInline(ctx){
+
     let results = ""
 
     if (ctx.inlineQuery.query === "") results = bot.photos;
@@ -23,16 +31,12 @@ bot.on('inline_query', async ctx => {
         ? searchResults.map((photo, id) => ({
             id,
             type: "photo",
-            photo_url: photo.url,
-            thumb_url: photo.url,
+            photo_file_id: photo.telegram_id,
+            thumb_url: photo.telegram_id
         })) : []
   
-    ctx.answerInlineQuery(results)
-})
-
-bot.on('text', async ctx => handleText(ctx))
-
-bot.launch()
+    ctx.answerInlineQuery(results)    
+}
 
 function searchPhoto(criteria) {
 
@@ -44,16 +48,18 @@ function searchPhoto(criteria) {
     }) : []    
 }
 
-function registerPhoto(ctx) {
-    ctx.reply('Envie a url da imagem:');
-    bot.MODE = "LINK";
+function setRegisterMode(ctx) {
+    ctx.reply('Envie a imagem:');
+    bot.MODE = "URL";
 }
 
 async function handleText(ctx) {
     
     this.mensagem = ctx.update.message.text;
 
-    await handleRegister(ctx);
+    if (isRegister()) await handleRegister(ctx);
+    if (isDelete()) await handleDelete(ctx);
+
     returnAnswer(ctx);
     
 }
@@ -67,83 +73,67 @@ function returnAnswer(ctx) {
 
 async function handleRegister(ctx) {
 
-    if (isRegisterLink()) await registerLink(ctx); 
-    if (isRegisterTag()) await registerTags(ctx);              
+    if (isRegisterPhoto()) await registerPhoto(ctx); 
+    if (isRegisterTag()) await registerTags(ctx);                            
 }
 
-function handleCancel(ctx) {
-    if (isRegister()){
-        bot.MODE = "CLEAR";
+async function handleCancel(ctx) {
+    if (isWorking()){
+        await bot.init();
         ctx.reply("Cancelado");
     } else {
         ctx.reply("Não há nada pra cancelar!");
     }
 }
 
-function isRegister(){
-    return ((bot.MODE === "LINK") || (bot.MODE === "TAG")) ? true : false;
+function isWorking() {
+    return bot.MODE === 'CLEAR' ? false : true;
 }
 
-function isRegisterLink() {
-    return bot.MODE === "LINK" ? true : false;
+function isRegister(){
+    return ((bot.MODE === "URL") || (bot.MODE === "TAG")) ? true : false;
+}
+
+function isRegisterPhoto() {
+    return bot.MODE === "URL" ? true : false;
 }
 
 function isRegisterTag() {
     return bot.MODE === "TAG" ? true : false;
 }
 
-async function registerLink(ctx){
-
-    if (isLink(this.mensagem)) {
-        
-        try {
-            if (await getUrl()){
-                bot.MODE = "TAG";
-                bot.url = this.mensagem;
-                ctx.reply('Link armazenado, agora insira as TAGs separadas por vírgulas');
-            } else {
-                ctx.reply('O link não é uma imagem válida, tente novamente');
-            }
-        } catch (err) {
-            ctx.reply(err.message);
-        }
-    }  else {
-        bot.answer = 'Por favor insira um link válido!'
-    }
-
+function isDelete() {
+    return ((bot.MODE === "DELETE") || (bot.MODE === "CONFIRM")) ? true : false;
 }
 
-function isLink(){
-    return this.mensagem.startsWith('http') ? true : false;
-}
+async function registerPhoto(ctx){
 
-async function getUrl(){
     try {
-        const res = await fetch(this.mensagem);
-        
-        return (res.ok && isValidImage(res.headers.get('content-type'))) ? true : false
-
+        bot.telegram_id = ctx.message.photo[0].file_id;
+        bot.telegram_unique_id = ctx.message.photo[0].file_unique_id;
+        bot.MODE = "TAG";
+        ctx.reply('Imagem armazenada, agora insira as TAGs separadas por vírgulas');
     } catch (err) {
-        throw new Error('Link offline, tente novamente');
-    }    
-}
-
-function isValidImage(content) {
-    return content.startsWith('image') ? true : false;
+        console.error(err)
+        ctx.reply("Ocorreu um erro, tente novamente.");
+    }
 }
 
 async function registerTags(ctx) {
-    if (!isLink()){
 
-        try {        
-            bot.tags = handleTags(this.mensagem);
-            await db('photos').insert({url: bot.url, tags: bot.tags});
-            await bot.init();
-            ctx.reply('Carta cadastrada com sucesso!')
-        } catch (err) {
-            console.error(err)
-        }
-
+    try {        
+        bot.tags = handleTags(this.mensagem);
+        await db('photos')
+            .insert({
+                telegram_id: bot.telegram_id, 
+                telegram_unique_id: bot.telegram_unique_id, 
+                tags: bot.tags
+            });
+        await bot.init();
+        ctx.reply('Carta cadastrada com sucesso!')
+    } catch (err) {        
+        console.error(err)
+        ctx.reply("Ocorreu um erro, tente novamente.");
     }
 }
 
@@ -151,4 +141,51 @@ function handleTags(txt){
     const preTags = txt.toUpperCase().split(',');
     const midTags = preTags.map(tag => tag.trim());
     return midTags.toString();
+}
+
+async function handlePhoto(ctx) {
+    if (isRegisterPhoto()) await registerPhoto(ctx);
+    if (isDelete()) await deletePhoto(ctx);
+}
+
+async function setDeleteMode(ctx) {
+    ctx.reply('Envie a carta a deletar:');
+    bot.MODE = "DELETE";
+}
+
+async function deletePhoto(ctx) {
+
+    bot.telegram_unique_id = ctx.message.photo[0].file_unique_id;
+    bot.MODE = "CONFIRM";
+    await ctx.replyWithMarkdown('Tem certeza?',
+    { reply_markup : {
+        keyboard : [["Sim"],["Não"]],
+        one_time_keyboard : true,
+        resize_keyboard : true
+    }})
+}
+
+async function handleDelete(ctx) {
+
+    if (this.mensagem === "Sim") {
+
+        try {        
+            await db('photos')
+                .where('telegram_unique_id', bot.telegram_unique_id)
+                .del();
+            await bot.init();
+            await ctx.replyWithMarkdown('Carta deletada com sucesso!',
+            { reply_markup : {
+                remove_keyboard : true
+            }})  
+        } catch (err) {        
+            console.error(err)
+            await ctx.replyWithMarkdown('Ocorreu um erro, tente novamente.',
+            { reply_markup : {
+                remove_keyboard : true
+            }})              
+        }  
+    } else {
+        await handleCancel();       
+    }
 }

@@ -19,7 +19,6 @@
   "dependencies": {
     "dotenv": "^8.2.0",
     "knex": "^0.21.12",
-    "node-fetch": "^2.6.1",
     "pg": "^8.5.1",
     "telegraf": "^3.38.0"
   }

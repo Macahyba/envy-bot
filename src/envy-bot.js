@@ -5,12 +5,13 @@ class EnvyBot extends Telegraf {
     
     constructor(BOT_TOKEN){
         super(BOT_TOKEN);
-        this.MODE = "CLEAR";
+        this.MODE;
         this.answer;
         this.photos;
     }
 
     async init(){
+        this.MODE = "CLEAR";
         this.photos = await this.fetchPhotosFromDB();
     }
 
@@ -27,7 +28,7 @@ class EnvyBot extends Telegraf {
         } catch (err) {
             console.error("Nao consegui acessar o banco!")
             console.error(err);
-            return [];
+            return this.photos ? this.photos : [];
         }
     }
 

@@ -1,8 +1,8 @@
-class Photo {
+// class Photo {
 
-    constructor() {
-        this.url;
-        this.tags;
-    }
-}
-module.exports = Photo;
+//     constructor() {
+//         this.url;
+//         this.tags;
+//     }
+// }
+// module.exports = Photo;
