@@ -15,8 +15,8 @@ function main(){
     bot.command('deletar', async ctx => setDeleteMode(ctx));
     bot.on('photo', ctx => handlePhoto(ctx));
     bot.on('inline_query', async ctx => handleInline(ctx));
-    bot.on('text', async ctx => handleText(ctx))
-    bot.launch()
+    bot.on('text', async ctx => handleText(ctx));
+    bot.launch();
 }
 
 async function handleInline(ctx){
@@ -80,9 +80,15 @@ async function handleRegister(ctx) {
 async function handleCancel(ctx) {
     if (isWorking()){
         await bot.init();
-        ctx.reply("Cancelado");
+        await ctx.replyWithMarkdown('Cancelado',
+        { reply_markup : {
+            remove_keyboard : true
+        }})           
     } else {
-        ctx.reply("Não há nada pra cancelar!");
+        await ctx.replyWithMarkdown('Não há nada pra cancelar!',
+        { reply_markup : {
+            remove_keyboard : true
+        }})           
     }
 }
 
@@ -186,6 +192,6 @@ async function handleDelete(ctx) {
             }})              
         }  
     } else {
-        await handleCancel();       
+        await handleCancel(ctx);       
     }
 }
